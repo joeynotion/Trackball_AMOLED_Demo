@@ -113,6 +113,32 @@ void QSPI_Display::reset() {
   delay(150);
 }
 
+void QSPI_Display::setBrightness(uint8_t brightness) {
+  writeC8D8(RM67162_BRIGHTNESS, brightness);
+}
+
+void QSPI_Display::setSleep(bool sleep) {
+  if (sleep) {
+    writeCommand(0x28); // DISPOFF
+    delay(20);
+    writeCommand(0x10); // SLPIN
+    delay(5);           // Required wait
+  } else {
+    reset();            // HARDWARE RESET PULSE (GPIO17)
+    writeCommand(0x11); // SLPOUT
+    delay(150);         // Wait for display oscillator
+
+    // Restoration of critical registers (Warm Boot)
+    writeCommand(0x13); // Normal mode
+    writeC8D8(RM67162_COLMOD, 0x55);
+    writeC8D8(RM67162_MADCTL, MADCTL_MY | MADCTL_MV | MADCTL_RGB);
+    writeCommand(0x21); // INVON
+
+    writeCommand(0x29); // DISPON
+    delay(20);
+  }
+}
+
 void QSPI_Display::writeCommand(uint8_t cmd) {
   CS_LOW();
   _spi_tran_ext.base.flags = SPI_TRANS_MULTILINE_CMD | SPI_TRANS_MULTILINE_ADDR;

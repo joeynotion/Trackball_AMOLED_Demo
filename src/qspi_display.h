@@ -26,6 +26,8 @@ public:
 
   bool begin();
   void reset();
+  void setBrightness(uint8_t brightness);
+  void setSleep(bool sleep);
 
   void writeCommand(uint8_t cmd);
   void writeData(uint8_t data);

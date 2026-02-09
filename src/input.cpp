@@ -5,6 +5,9 @@
 // External trackball instance (defined in main.cpp)
 extern Trackball trackball;
 
+// External activity flag for power management
+extern volatile bool g_activity_detected;
+
 // Navigation threshold - lower = more responsive
 static const int16_t NAVIGATION_THRESHOLD = 4;
 
@@ -12,13 +15,6 @@ static const int16_t NAVIGATION_THRESHOLD = 4;
 static const uint32_t KEY_PRESS_DURATION_MS = 50;
 
 void keypad_read(lv_indev_t *indev, lv_indev_data_t *data) {
-  static uint32_t poll_count = 0;
-  if (poll_count++ % 50 == 0) {
-    Serial.println("Indev polling...");
-  }
-  
-  trackball.update();
-
   static int16_t acc_x = 0;
   static int16_t acc_y = 0;
   static uint32_t key_press_time = 0;
@@ -43,12 +39,16 @@ void keypad_read(lv_indev_t *indev, lv_indev_data_t *data) {
     return;
   }
 
+  // NOTE: trackball.update() is now called in main loop before lv_timer_handler()
+  // This ensures consistent state between input reading and power management
+  
   // Read raw trackball movement
   int16_t raw_dx = trackball.right() - trackball.left();
   int16_t raw_dy = trackball.down() - trackball.up();
 
-  if (raw_dx != 0 || raw_dy != 0) {
-    Serial.printf("Raw: dx=%d dy=%d\n", raw_dx, raw_dy);
+  // Flag ANY activity for power management BEFORE rotation
+  if (raw_dx != 0 || raw_dy != 0 || trackball.isPressed() || trackball.clicked()) {
+    g_activity_detected = true;
   }
 
   // Rotate 90 degrees counter-clockwise: new_x = -old_y, new_y = old_x

@@ -7,6 +7,9 @@
 // External trackball instance (defined in main.cpp)
 extern Trackball trackball;
 
+// External function to save LED color for sleep/wake
+extern void set_trackball_led_color(uint8_t r, uint8_t g, uint8_t b);
+
 // Button colors (RGB hex values)
 static uint32_t colors[] = {
     0xff0000, 0x00ff00, 0x0000ff, // Red, Green, Blue
@@ -39,7 +42,6 @@ void ui_init() {
   lv_obj_set_grid_dsc_array(cont, col_dsc, row_dsc);
 
   // Enable gridnav on the container for 2D navigation
-  // UPDATED: Use LV_GRIDNAV_CTRL_ROLLOVER for wraparound navigation
   lv_gridnav_add(cont, LV_GRIDNAV_CTRL_ROLLOVER);
 
   // Create buttons in grid
@@ -58,15 +60,12 @@ void ui_init() {
 
     // Keep button background color when focused
     lv_obj_set_style_bg_color(btn, lv_color_hex(color), LV_STATE_FOCUSED);
-
-    // ADDED: Make focus more visible with internal border
-    lv_obj_set_style_border_width(btn, 0, 0);
-    lv_obj_set_style_border_width(
-        btn, 6, LV_STATE_FOCUSED); // Pronounced internal border
-    lv_obj_set_style_border_color(btn, lv_palette_main(LV_PALETTE_GREY),
-                                  LV_STATE_FOCUSED); // Medium gray
-    lv_obj_set_style_border_side(btn, LV_BORDER_SIDE_FULL, LV_STATE_FOCUSED);
-    lv_obj_set_style_border_opa(btn, LV_OPA_COVER, LV_STATE_FOCUSED);
+    
+    // Make focus visible with bright yellow outline
+    lv_obj_set_style_outline_width(btn, 0, 0);
+    lv_obj_set_style_outline_width(btn, 6, LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_color(btn, lv_color_hex(0xFFFF00), LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_pad(btn, 3, LV_STATE_FOCUSED);
 
     // Create label
     lv_obj_t *label = lv_label_create(btn);
@@ -94,17 +93,17 @@ void ui_init() {
           uint8_t b = c & 0xFF;
 
           if (idx == 4) {
-            trackball.setRGBW(0, 0, 0, 0);
+            set_trackball_led_color(0, 0, 0); // Off - saves this for wake
             Serial.println("Trackball: OFF");
           } else {
-            trackball.setRGBW(r, g, b, 0);
+            set_trackball_led_color(r, g, b); // Saves color and sets LED
             Serial.printf("Trackball: R=%d G=%d B=%d\n", r, g, b);
           }
         },
         LV_EVENT_CLICKED, (void *)(intptr_t)i);
   }
 
-  // CRITICAL FIX: Create group and associate with input device BEFORE focusing
+  // Create group and associate with input device
   lv_group_t *g = lv_group_create();
   lv_group_add_obj(g, cont);
 
@@ -121,13 +120,11 @@ void ui_init() {
   // Set as default group
   lv_group_set_default(g);
 
-  // NOW focus the first button
+  // Focus the first button
   lv_obj_t *first_btn = lv_obj_get_child(cont, 0);
   if (first_btn) {
     Serial.println("Focusing first button");
     lv_group_focus_obj(first_btn);
-    // Alternative method using gridnav:
-    // lv_gridnav_set_focused(cont, first_btn, LV_ANIM_OFF);
   } else {
     Serial.println("WARNING: Could not find first button to focus!");
   }

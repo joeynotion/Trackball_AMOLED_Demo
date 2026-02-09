@@ -5,6 +5,9 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <esp_heap_caps.h>
+#include <esp_sleep.h>
+#include <driver/gpio.h>
+#include <driver/rtc_io.h>
 #include <lvgl.h>
 
 // I2C Pins for trackball
@@ -14,8 +17,24 @@
 // Buffer height for partial rendering (60 lines each)
 #define BUF_HEIGHT 60
 
+// Power management settings
+#define IDLE_TIMEOUT_MS 10000  // 10 seconds
+#define FADE_OUT_STEP 8        // Brightness reduction per step
+#define FADE_IN_STEP 12        // Brightness increase per step
+#define FADE_OUT_INTERVAL_MS 20
+#define FADE_IN_INTERVAL_MS 10
+#define TARGET_BRIGHTNESS 200
+
 // Trackball instance (global, used by ui.cpp and input.cpp)
 Trackball trackball;
+
+// Global activity flag that input.cpp can set
+volatile bool g_activity_detected = false;
+
+// Saved LED color for restoring after wake
+static uint8_t saved_led_r = 0;
+static uint8_t saved_led_g = 0;
+static uint8_t saved_led_b = 64; // Default blue
 
 /* Display flushing callback for LVGL 9 */
 void disp_flush(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map) {
@@ -54,8 +73,7 @@ void setup() {
   // Init LVGL
   lv_init();
 
-  // CRITICAL FIX: Register tick callback BEFORE creating display
-  // This replaces LV_TICK_CUSTOM_SYS_TIME_EXPR which is deprecated in LVGL 9
+  // Register tick callback
   lv_tick_set_cb([]() -> uint32_t { return millis(); });
 
   // Create display with LVGL 9 API
@@ -68,7 +86,6 @@ void setup() {
 
   if (!buf1 || !buf2) {
     Serial.println("PSRAM buffer alloc failed, using internal RAM");
-    // Fallback to internal RAM with smaller buffer
     static uint8_t fallback_buf[LCD_WIDTH * 20 * sizeof(lv_color_t)];
     lv_display_set_buffers(disp, fallback_buf, NULL, sizeof(fallback_buf),
                            LV_DISPLAY_RENDER_MODE_PARTIAL);
@@ -84,9 +101,9 @@ void setup() {
   lv_indev_t *indev = lv_indev_create();
   lv_indev_set_type(indev, LV_INDEV_TYPE_KEYPAD);
   lv_indev_set_read_cb(indev, keypad_read);
-  lv_indev_set_display(indev, disp); // Critical: associate input with display!
+  lv_indev_set_display(indev, disp);
 
-  // ADDED FIX: Set faster polling rate for better responsiveness
+  // Set faster polling rate for better responsiveness
   lv_timer_set_period(lv_indev_get_read_timer(indev), 20);
 
   // Build UI
@@ -95,16 +112,173 @@ void setup() {
   Serial.println("Setup complete");
 }
 
-void loop() {
-  lv_timer_handler();
+enum power_state_t {
+  STATE_AWAKE,
+  STATE_FADING_OUT,
+  STATE_LIGHT_SLEEP,
+  STATE_FADING_IN
+};
 
-  trackball.update();
+static power_state_t power_state = STATE_AWAKE;
+static uint8_t cur_brightness = TARGET_BRIGHTNESS;
+static uint32_t last_brightness_update = 0;
+static uint32_t last_activity_time = 0;
 
-  static uint32_t last_print = 0;
-  if (millis() - last_print > 2000) {
-    Serial.printf("Loop running... Tick: %u\n", (unsigned int)lv_tick_get());
-    last_print = millis();
+void enter_light_sleep() {
+  Serial.println("Entering light sleep mode...");
+  
+  // Turn off trackball LED completely
+  trackball.setRGBW(0, 0, 0, 0);
+  
+  // Put display in sleep mode
+  lcd.setSleep(true);
+  
+  // Light sleep with polling: sleep in short bursts and check for activity
+  // This is more reliable than GPIO interrupt for I2C devices
+  while (power_state == STATE_LIGHT_SLEEP) {
+    // Sleep for 100ms at a time
+    esp_sleep_enable_timer_wakeup(100 * 1000ULL); // 100ms in microseconds
+    esp_light_sleep_start();
+    
+    // Check for trackball activity after each wake
+    trackball.update();
+    
+    // Check for any movement or button press
+    if (trackball.right() != 0 || trackball.left() != 0 || 
+        trackball.up() != 0 || trackball.down() != 0 || 
+        trackball.isPressed() || trackball.clicked()) {
+      
+      Serial.println("Trackball activity detected, waking display!");
+      
+      // Wake display FIRST
+      lcd.setSleep(false);
+      Serial.println("Display sleep disabled");
+      
+      // Reinitialize I2C to ensure reliability
+      Wire.begin(I2C_SDA, I2C_SCL);
+      
+      // Restore trackball LED to saved color
+      trackball.setRGBW(saved_led_r, saved_led_g, saved_led_b, 0);
+      Serial.printf("LED restored: R=%d G=%d B=%d\n", saved_led_r, saved_led_g, saved_led_b);
+      
+      // Clear any pending trackball data
+      trackball.update();
+      
+      // Set brightness to 0 to start fade-in from black
+      cur_brightness = 0;
+      lcd.setBrightness(cur_brightness);
+      Serial.println("Brightness reset to 0 for fade-in");
+      
+      // Force full screen refresh
+      lv_obj_invalidate(lv_screen_active());
+      Serial.println("Screen invalidated");
+      
+      // Set activity flag and update timestamp
+      g_activity_detected = true;
+      last_activity_time = millis();
+      last_brightness_update = millis();
+      
+      // Change to fading in state
+      power_state = STATE_FADING_IN;
+      Serial.println("State changed to FADING_IN");
+      
+      break; // Exit sleep loop
+    }
   }
+  
+  Serial.println("Exited light sleep");
+}
+
+void handle_power_save() {
+  uint32_t now = millis();
+  
+  // Check for activity flag set by input handler
+  if (g_activity_detected) {
+    last_activity_time = now;
+    g_activity_detected = false;
+    
+    // If in light sleep, wake-up is handled in enter_light_sleep() after esp_light_sleep_start()
+    // This handles activity during fade states
+    if (power_state == STATE_FADING_OUT) {
+      Serial.println("Activity during fade-out, reversing...");
+      power_state = STATE_FADING_IN;
+      last_brightness_update = now;
+    } else if (power_state == STATE_LIGHT_SLEEP) {
+      // Just came back from light sleep, start fading in
+      power_state = STATE_FADING_IN;
+      last_brightness_update = now;
+    }
+  }
+
+  uint32_t idle_time = now - last_activity_time;
+
+  switch (power_state) {
+  case STATE_AWAKE:
+    if (idle_time > IDLE_TIMEOUT_MS) {
+      power_state = STATE_FADING_OUT;
+      last_brightness_update = now;
+      Serial.println("Idle timeout, fading out...");
+    }
+    break;
+
+  case STATE_FADING_OUT:
+    if (now - last_brightness_update > FADE_OUT_INTERVAL_MS) {
+      if (cur_brightness > 0) {
+        int next_b = (int)cur_brightness - FADE_OUT_STEP;
+        cur_brightness = (next_b < 0) ? 0 : next_b;
+        lcd.setBrightness(cur_brightness);
+      } else {
+        power_state = STATE_LIGHT_SLEEP;
+        enter_light_sleep(); // Blocks until wake
+        // After wake, state will be changed to FADING_IN by activity detection
+      }
+      last_brightness_update = now;
+    }
+    break;
+
+  case STATE_LIGHT_SLEEP:
+    // This state should not be reached in normal flow
+    // Wake-up is handled inside enter_light_sleep()
+    Serial.println("WARNING: STATE_LIGHT_SLEEP reached in state machine");
+    power_state = STATE_FADING_IN;
+    break;
+
+  case STATE_FADING_IN:
+    if (now - last_brightness_update > FADE_IN_INTERVAL_MS) {
+      if (cur_brightness < TARGET_BRIGHTNESS) {
+        int next_b = (int)cur_brightness + FADE_IN_STEP;
+        cur_brightness = (next_b > TARGET_BRIGHTNESS) ? TARGET_BRIGHTNESS : next_b;
+        lcd.setBrightness(cur_brightness);
+        if (cur_brightness % 48 == 0) {
+          Serial.printf("Fading in... brightness=%d\n", cur_brightness);
+        }
+      } else {
+        power_state = STATE_AWAKE;
+        Serial.println("Display fully awake");
+      }
+      last_brightness_update = now;
+    }
+    break;
+  }
+}
+
+// Function to save current LED color (call from ui.cpp button handler)
+void set_trackball_led_color(uint8_t r, uint8_t g, uint8_t b) {
+  saved_led_r = r;
+  saved_led_g = g;
+  saved_led_b = b;
+  trackball.setRGBW(r, g, b, 0);
+}
+
+void loop() {
+  // Update trackball ONCE per loop iteration
+  trackball.update();
+  
+  // Handle LVGL timers (which will call keypad_read)
+  lv_timer_handler();
+  
+  // Handle power management
+  handle_power_save();
 
   delay(5);
 }
