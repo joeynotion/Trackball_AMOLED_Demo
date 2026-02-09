@@ -1,0 +1,21 @@
+# Name,   Type, SubType, Offset,  Size, Flags
+nvs,      data, nvs,     0x9000,  0x5000,
+otadata,  data, ota,     0xe000,  0x2000,
+app0,     app,  ota_0,   0x10000, 0x300000,
+app1,     app,  ota_1,   0x310000,0x300000,
+spiffs,   data, spiffs,  0x610000, 0x9E0000,
+# Note: "FATFS" usually refers to using the FFat library on a partition. 
+# PlatformIO usually labels 'fatfs' partitions as 'data, fat' or just uses a custom partition type.
+# However, for compatibility with typical "FATFS" usage in Arduino ESP32, we often use a specific data partition.
+# If the user specifically wants 9.9MB FATFS, we can define it. 
+# 0x9E0000 hex is approx 10.3 MB. 
+# 16MB = 0x1000000 bytes.
+# 3MB = 0x300000 bytes.
+# nvs (20KB) + otadata (8KB) + 2x app (6MB total) = ~6MB used.
+# Remaining for data = ~10MB.
+# Let's align to the user's specific "3MB APP / 9.9MB FATFS" request.
+# 3MB app0.
+# The user might not want OTA (2x apps). "3MB APP" often implies a single factory app or simplified scheme, OR 2 apps of 3MB. 
+# Standard "Huge App" is often 3MB.
+# Let's assume standard OTA scheme with 3MB slots.
+# Top of flash: 16MB.
