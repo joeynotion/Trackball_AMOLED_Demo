@@ -17,7 +17,14 @@ public:
 
     // Check if device is present
     _wire->beginTransmission(_addr);
-    return (_wire->endTransmission() == 0);
+    uint8_t error = _wire->endTransmission();
+    if (error == 0) {
+      Serial.println("Trackball found at 0x0A");
+      return true;
+    } else {
+      Serial.printf("Trackball init failed: error %d\n", error);
+      return false;
+    }
   }
 
   void setRGBW(uint8_t r, uint8_t g, uint8_t b, uint8_t w) {
@@ -53,6 +60,8 @@ public:
       _sw = sw_state;
 
       return true;
+    } else {
+      Serial.println("Trackball read failed");
     }
     return false;
   }
