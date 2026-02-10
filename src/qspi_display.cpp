@@ -90,16 +90,7 @@ bool QSPI_Display::begin() {
   // Initialize display
   writeCommand(RM67162_SLPOUT);
   delay(120);
-
-  writeC8D8(RM67162_COLMOD, 0x55); // 16-bit color
-  writeC8D8(RM67162_MADCTL,
-            MADCTL_MY | MADCTL_MV |
-                MADCTL_RGB);           // Landscape, rotated, RGB colors
-  writeC8D8(RM67162_BRIGHTNESS, 0xD0); // Brightness
-
-  writeCommand(RM67162_DISPON);
-  writeCommand(RM67162_INVON); // Turn on inversion for proper black levels
-  delay(20);
+  initPanel();
 
   Serial.println("Display initialized");
   return true;
@@ -114,6 +105,7 @@ void QSPI_Display::reset() {
 }
 
 void QSPI_Display::setBrightness(uint8_t brightness) {
+  _last_brightness = brightness;
   writeC8D8(RM67162_BRIGHTNESS, brightness);
 }
 
@@ -124,19 +116,22 @@ void QSPI_Display::setSleep(bool sleep) {
     writeCommand(0x10); // SLPIN
     delay(5);           // Required wait
   } else {
-    reset();            // HARDWARE RESET PULSE (GPIO17)
     writeCommand(0x11); // SLPOUT
     delay(150);         // Wait for display oscillator
-
-    // Restoration of critical registers (Warm Boot)
     writeCommand(0x13); // Normal mode
-    writeC8D8(RM67162_COLMOD, 0x55);
-    writeC8D8(RM67162_MADCTL, MADCTL_MY | MADCTL_MV | MADCTL_RGB);
-    writeCommand(0x21); // INVON
-
-    writeCommand(0x29); // DISPON
-    delay(20);
+    initPanel();
   }
+}
+
+void QSPI_Display::initPanel() {
+  writeC8D8(RM67162_COLMOD, 0x55); // 16-bit color
+  writeC8D8(RM67162_MADCTL,
+            MADCTL_MY | MADCTL_MV |
+                MADCTL_RGB); // Landscape, rotated, RGB colors
+  writeC8D8(RM67162_BRIGHTNESS, _last_brightness);
+  writeCommand(RM67162_DISPON);
+  writeCommand(RM67162_INVON); // Turn on inversion for proper black levels
+  delay(20);
 }
 
 void QSPI_Display::writeCommand(uint8_t cmd) {

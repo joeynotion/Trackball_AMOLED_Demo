@@ -22,7 +22,7 @@
 
 class QSPI_Display {
 public:
-  QSPI_Display() : _handle(nullptr) {}
+  QSPI_Display() : _handle(nullptr), _last_brightness(0xD0) {}
 
   bool begin();
   void reset();
@@ -45,7 +45,9 @@ private:
   spi_transaction_t *_spi_tran;
 
   uint8_t *_buffer;
+  uint8_t _last_brightness;
 
+  void initPanel();
   void CS_HIGH();
   void CS_LOW();
   void pollStart();
