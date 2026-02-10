@@ -158,6 +158,10 @@ void enter_light_sleep() {
       // Reinitialize I2C to ensure reliability
       Wire.begin(I2C_SDA, I2C_SCL);
 
+      // Reinitialize Serial to restore USB CDC communication
+      Serial.begin(115200);
+      delay(50); // Small delay for USB re-enumeration/sync
+
       // Restore trackball LED to saved color
       trackball.setRGBW(saved_led_r, saved_led_g, saved_led_b, saved_led_w);
       Serial.printf("LED restored: R=%d G=%d B=%d W=%d\n", saved_led_r,

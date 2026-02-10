@@ -97,6 +97,7 @@ Uses a **Polled Light Sleep** loop:
 *   **Display is Negative?** -> You missed the `INVON (0x21)` command in init.
 *   **Build Error (Neon/Helium)?** -> Run the `fix_lvgl_9.py` script to remove ARM assembly.
 *   **No Serial Output?** -> Set `ARDUINO_USB_CDC_ON_BOOT=1` in `platformio.ini`.
+*   **Serial Stops after Sleep?** -> This is normal behavior. It automatically reconnects 50ms after wake.
 *   **Input Lag?** -> Check `NAVIGATION_THRESHOLD` in `input.cpp`.
 
 ---
