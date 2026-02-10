@@ -5,16 +5,29 @@
 ![Display](https://img.shields.io/badge/Display-AMOLED_1.91%22-blue)
 ![LVGL](https://img.shields.io/badge/GUI-LVGL_9-red)
 
-A highly optimized master reference implementation for the **Waveshare ESP32-S3-AMOLED-1.91** development board. This project standardizes the drivers, power management, and UI architecture to serve as a robust foundation for future derived systems.
+A reference implementation for the **Waveshare ESP32-S3-AMOLED-1.91** development board. This project standardizes the drivers, power management, and UI architecture to serve as a foundation for future derived systems.
 
 ---
 
 ## ✨ Features
 
-*   **Native Low Power Mode**: Polled `esp_light_sleep` implementation for <1mA idle consumption with instant wake-on-input.
-*   **High-Performance Graphics**: Dual-buffered **LVGL 9** rendering on the RM67162 AMOLED controller using OPI PSRAM.
-*   **Unified Input Architecture**: Single I2C bus driver for both Trackball and IMU, with automatic coordinate rotation.
-*   **Crash-Proof Config**: Tested partition tables and build scripts to prevent common Xtensa/ARM assembly conflicts.
+*   **Low Power Mode**: Polled `esp_light_sleep` implementation for low idle consumption with instant wake-on-input.
+*   **Graphics**: Dual-buffered **LVGL 9** rendering on the RM67162 AMOLED controller using OPI PSRAM.
+*   **Input Handling**: Support for **RGBW LED** control and unified I2C bus driver with coordinate rotation.
+*   **Build Configuration**: Verified partition tables and build scripts to address common Xtensa/ARM assembly conflicts.
+
+## 🎮 About the Demo
+
+This project compiles into a complete interactive reference application that demonstrates:
+
+1.  **Smooth UI**: A 60FPS LVGL interface running on the AMOLED screen.
+2.  **Trackball Navigation**: Use the trackball to move focus between UI elements (rotated 90° to match the screen).
+3.  **Smart Power Saving**:
+    *   Uses a 4-state machine: `AWAKE` -> `FADE_OUT` -> `LIGHT_SLEEP` -> `FADE_IN`.
+    *   **Idle**: Dimming after 10s of inactivity, then entering Light Sleep.
+    *   **Sleep**: Display & LED off. Polled wake-up every 100ms (Light Sleep).
+    *   **Wake**: Instant wake-up by rolling or clicking the trackball.
+4.  **Feedback**: Click the on-screen color buttons to set the trackball's RGBW LED to the corresponding color.
 
 ---
 
@@ -40,7 +53,7 @@ A highly optimized master reference implementation for the **Waveshare ESP32-S3-
 | **Flash** | 16MB (External) |
 | **Display** | 1.91" AMOLED (240x536) @ 60Hz |
 | **IMU** | QMI8658 (6-Axis) |
-| **Input** | I2C Trackball with RGB LED |
+| **Input** | I2C Trackball with RGBW LED |
 
 ---
 

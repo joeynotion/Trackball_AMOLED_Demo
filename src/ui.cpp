@@ -8,7 +8,7 @@
 extern Trackball trackball;
 
 // External function to save LED color for sleep/wake
-extern void set_trackball_led_color(uint8_t r, uint8_t g, uint8_t b);
+extern void set_trackball_led_color(uint8_t r, uint8_t g, uint8_t b, uint8_t w);
 
 // Button colors (RGB hex values)
 static uint32_t colors[] = {
@@ -95,12 +95,19 @@ void ui_init() {
           uint8_t g = (c >> 8) & 0xFF;
           uint8_t b = c & 0xFF;
 
-          if (idx == 4) {
-            set_trackball_led_color(0, 0, 0); // Off - saves this for wake
+          if (idx == 4) { // Off
+            set_trackball_led_color(0, 0, 0, 0);
             Serial.println("Trackball: OFF");
+          } else if (idx == 7) { // White button - Use pure white LED
+            set_trackball_led_color(0, 0, 0, 255);
+            Serial.println("Trackball: Pure White");
+          } else if (idx == 2) { // Blue button - Augment with some white for
+                                 // brightness
+            set_trackball_led_color(0, 0, 255, 50);
+            Serial.println("Trackball: Blue + White");
           } else {
-            set_trackball_led_color(r, g, b); // Saves color and sets LED
-            Serial.printf("Trackball: R=%d G=%d B=%d\n", r, g, b);
+            set_trackball_led_color(r, g, b, 0);
+            Serial.printf("Trackball: R=%d G=%d B=%d W=0\n", r, g, b);
           }
         },
         LV_EVENT_CLICKED, (void *)(intptr_t)i);
