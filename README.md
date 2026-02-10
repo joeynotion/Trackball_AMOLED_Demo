@@ -5,7 +5,7 @@
 ![Display](https://img.shields.io/badge/Display-AMOLED_1.91%22-blue)
 ![LVGL](https://img.shields.io/badge/GUI-LVGL_9-red)
 
-A reference implementation for the **Waveshare ESP32-S3-AMOLED-1.91** development board. This project standardizes the drivers, power management, and UI architecture to serve as a foundation for future derived systems.
+A reference implementation for the **Waveshare ESP32-S3-AMOLED-1.91** development board integrated with the **Pimoroni Trackball Breakout**. This project standardizes the drivers, power management, and UI architecture to serve as a foundation for future derived systems.
 
 ---
 
@@ -15,6 +15,7 @@ A reference implementation for the **Waveshare ESP32-S3-AMOLED-1.91** developmen
 *   **Graphics**: Dual-buffered **LVGL 9** rendering on the RM67162 AMOLED controller using OPI PSRAM.
 *   **Input Handling**: Support for **RGBW LED** control and unified I2C bus driver with coordinate rotation.
 *   **Build Configuration**: Verified partition tables and build scripts to address common Xtensa/ARM assembly conflicts.
+*   **Embedded Drivers**: Custom implementations for the QSPI display and I2C trackball to support specific power states and peripheral configurations.
 
 ## 🎮 About the Demo
 
@@ -53,7 +54,7 @@ This project compiles into a complete interactive reference application that dem
 | **Flash** | 16MB (External) |
 | **Display** | 1.91" AMOLED (240x536) @ 60Hz |
 | **IMU** | QMI8658 (6-Axis) |
-| **Input** | I2C Trackball with RGBW LED |
+| **Input** | Pimoroni Trackball Breakout (RGBW LED, Nuvoton MCU) |
 
 ---
 
@@ -89,6 +90,23 @@ Uses a **Polled Light Sleep** loop:
 *   **App Partition**: 3MB (via `partitions.csv`)
 *   **Filesystem**: ~9.9MB FATFS/LittleFS
 *   **PSRAM**: 8MB OPI (Critical: `qio_opi` mode)
+
+---
+
+## 🏗️ Technical Implementations
+
+The project uses custom-built drivers located in `src/` to handle specific hardware requirements:
+
+1.  **RM67162 AMOLED Driver** (`qspi_display.cpp/h`):
+    *   Configures the ESP32-S3 **QSPI** peripheral at 40MHz.
+    *   Uses manual memory-mapped addressing for frame data transfers.
+    *   Implements the hardware-level sleep/wake commands for the display controller.
+2.  **Pimoroni Trackball Driver** (`trackball.cpp/h`):
+    *   I2C implementation for the Nuvoton-based breakout.
+    *   Supports **RGBW** LED control and directional polling.
+3.  **LVGL Input Bridge** (`input.cpp/h`):
+    *   Maps the physical trackball to the LVGL `KEYPAD` input system.
+    *   Implements coordinate rotation and software debouncing.
 
 ---
 
