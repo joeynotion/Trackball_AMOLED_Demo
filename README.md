@@ -21,7 +21,7 @@ A reference implementation for the **Waveshare ESP32-S3-AMOLED-1.91** developmen
 
 This project compiles into a complete interactive reference application that demonstrates:
 
-1.  **Smooth UI**: A 60FPS LVGL interface running on the AMOLED screen.
+1.  **Smooth UI**: A responsive LVGL interface running on the AMOLED screen.
 2.  **Trackball Navigation**: Use the trackball to move focus between UI elements (rotated 90° to match the screen).
 3.  **Smart Power Saving**:
     *   Uses a 4-state machine: `AWAKE` -> `FADE_OUT` -> `LIGHT_SLEEP` -> `FADE_IN`.
@@ -77,7 +77,7 @@ This project compiles into a complete interactive reference application that dem
 Driven via **QSPI** at 40MHz. Requires specific initialization for the AMOLED panel:
 *   **Color Inversion**: `INVON (0x21)` is **mandatory** for correct black levels.
 *   **Orientation**: `MADCTL (0x36)` set to `0x20 | 0x80` for landscape.
-*   **Buffering**: Uses two `MALLOC_CAP_SPIRAM` buffers in PSRAM for smooth 60ms refreshes.
+*   **Buffering**: Uses two `MALLOC_CAP_SPIRAM` buffers in PSRAM for smooth partial rendering.
 
 ### 2. Power Management
 Uses a **Polled Light Sleep** loop:
@@ -101,8 +101,8 @@ The project uses custom-built drivers located in `src/` to handle specific hardw
     *   Configures the ESP32-S3 **QSPI** peripheral at 40MHz.
     *   Uses manual memory-mapped addressing for frame data transfers.
     *   Implements the hardware-level sleep/wake commands for the display controller.
-2.  **Pimoroni Trackball Driver** (`trackball.cpp/h`):
-    *   I2C implementation for the Nuvoton-based breakout.
+2.  **Pimoroni Trackball Driver** (`trackball.h`):
+    *   Header-only I2C implementation for the Nuvoton-based breakout.
     *   Supports **RGBW** LED control and directional polling.
 3.  **LVGL Input Bridge** (`input.cpp/h`):
     *   Maps the physical trackball to the LVGL `KEYPAD` input system.
