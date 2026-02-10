@@ -60,12 +60,15 @@ void ui_init() {
 
     // Keep button background color when focused
     lv_obj_set_style_bg_color(btn, lv_color_hex(color), LV_STATE_FOCUSED);
-    
-    // Make focus visible with bright yellow outline
-    lv_obj_set_style_outline_width(btn, 0, 0);
-    lv_obj_set_style_outline_width(btn, 6, LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_color(btn, lv_color_hex(0xFFFF00), LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_pad(btn, 3, LV_STATE_FOCUSED);
+
+    // ADDED: Make focus more visible with internal border
+    lv_obj_set_style_border_width(btn, 0, 0);
+    lv_obj_set_style_border_width(btn, 6,
+                                  LV_STATE_FOCUSED); // 6px internal border
+    lv_obj_set_style_border_color(btn, lv_palette_main(LV_PALETTE_GREY),
+                                  LV_STATE_FOCUSED); // Medium Gray
+    lv_obj_set_style_border_side(btn, LV_BORDER_SIDE_FULL, LV_STATE_FOCUSED);
+    lv_obj_set_style_border_opa(btn, LV_OPA_COVER, LV_STATE_FOCUSED);
 
     // Create label
     lv_obj_t *label = lv_label_create(btn);
